@@ -13,7 +13,7 @@ from tensorboardX import SummaryWriter
 from torch.utils.data import DataLoader
 
 from model_torch import DCBHG
-from dataload_DataBakerCN import DataBakerCNDataset
+from dataload_Multi import MultiDataset
 from audio import hparams as audio_hparams
 from audio import normalized_db_mel2wav, normalized_db_spec2wav, write_wav
 
@@ -143,10 +143,10 @@ def generate_pair_wav(spec, spec_pred, log_dir, global_step, suffix_name):
 
 def main():
   # 数据读入，准备
-  now_dataset_train = DataBakerCNDataset(TRAIN_FILE)
+  now_dataset_train = MultiDataset(TRAIN_FILE)
   now_train_torch_dataloader = DataLoader(now_dataset_train, batch_size=BATCH_SIZE, num_workers=num_workers, shuffle=True, drop_last=True)
 
-  now_dataset_validation = DataBakerCNDataset(VALIDATION_FILE)
+  now_dataset_validation = MultiDataset(VALIDATION_FILE)
   now_validation_torch_loader = DataLoader(now_dataset_validation, batch_size=BATCH_SIZE, num_workers=num_workers, shuffle=True)
   
   
@@ -184,18 +184,21 @@ def main():
   model.train()
   while global_epoch < nepochs:
       running_loss = 0.0
-      for _step, (ppgs, mels, specs, lengths) in tqdm(enumerate(now_train_torch_dataloader)):
+      for _step, (ppgs, mels, specs, lengths, id_speakers) in tqdm(enumerate(now_train_torch_dataloader)):
           # Batch开始训练，清空opt，数据拿到GPU上
           optimizer.zero_grad()
 
           ppgs = ppgs.to(device)
           mels = mels.to(device)
           specs = specs.to(device)
+          id_speakers = id_speakers.to(device).long()
           ppgs, mels, specs = Variable(ppgs).float(), Variable(mels).float(), Variable(specs).float()
+          # id_speaker需要是整数
+          print('id_speaker type', id_speakers.type())
 
 
           # Batch同时计算出pred结果
-          mels_pred, specs_pred = model(ppgs)
+          mels_pred, specs_pred = model(ppgs, id_speakers)
 
 
           # 根据预测结果定义/计算loss; 不过我记得tacotron里面不是用的两个l1loss吧，之后再看看 TODO
