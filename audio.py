@@ -20,7 +20,7 @@ hparams = {
     'sample_rate': 16000,
     'preemphasis': 0.97,
     'n_fft': 400,
-    'hop_length': 80,
+    'hop_length': 160,
     'win_length': 400,
     'num_mels': 80,
     'n_mfcc': 13,

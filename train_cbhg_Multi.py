@@ -23,7 +23,7 @@ hparams = {
     'sample_rate': 16000,
     'preemphasis': 0.97,
     'n_fft': 400,
-    'hop_length': 80,
+    'hop_length': 160,
     'win_length': 400,
     'num_mels': 80,
     'n_mfcc': 13,
@@ -40,10 +40,10 @@ hparams = {
 
 assert hparams == audio_hparams
 
-TRAIN_FILE = '/datapool/home/hujk17/chenxueyuan/DataBaker_Bilingual_CN/meta_good_train.txt'
-VALIDATION_FILE = '/datapool/home/hujk17/chenxueyuan/DataBaker_Bilingual_CN/meta_good_validation.txt'
+TRAIN_FILE = 'meta_good_train_small.txt'
+VALIDATION_FILE = 'meta_good_validation_small.txt'
 # 注意是否要借鉴已经有的模型
-restore_ckpt_path_DataBakerCN = '/datapool/home/hujk17/ppg_decode_spec_5ms_sch_DataBakerCN/const_ckpt/checkpoint_step000034800.pth'
+restore_ckpt_path_Multi = None
 
 
 use_cuda = torch.cuda.is_available()
@@ -52,9 +52,9 @@ device = torch.device("cuda" if use_cuda else "cpu")
 num_workers = 0
 
 # some super parameters，用epochs来计数，而不是步数（不过两者同时统计）
-# BATCH_SIZE = 64
+BATCH_SIZE = 64
 # BATCH_SIZE = 2
-BATCH_SIZE = 16
+# BATCH_SIZE = 16
 clip_thresh = 0.1
 nepochs = 5000
 LEARNING_RATE = 0.0003
@@ -64,13 +64,13 @@ CKPT_EVERY = 300
 VALIDATION_EVERY = 600
 # VALIDATION_EVERY = 2
 
-# DataBakerCN的log: ckpt文件夹以及wav文件夹，tensorboad在wav文件夹中
-DataBakerCN_log_dir = os.path.join('restoreANDvalitation_DataBakerCN_log_dir', STARTED_DATESTRING, 'train_wav')
-DataBakerCN_model_dir = os.path.join('restoreANDvalitation_DataBakerCN_log_dir', STARTED_DATESTRING, 'ckpt_model')
-if os.path.exists(DataBakerCN_log_dir) is False:
-  os.makedirs(DataBakerCN_log_dir, exist_ok=True)
-if os.path.exists(DataBakerCN_model_dir) is False:
-  os.makedirs(DataBakerCN_model_dir, exist_ok=True)
+# Multi的log: ckpt文件夹以及wav文件夹，tensorboad在wav文件夹中
+Multi_log_dir = os.path.join('restoreANDvalitation_Multi_log_dir', STARTED_DATESTRING, 'train_wav')
+Multi_model_dir = os.path.join('restoreANDvalitation_Multi_log_dir', STARTED_DATESTRING, 'ckpt_model')
+if os.path.exists(Multi_log_dir) is False:
+  os.makedirs(Multi_log_dir, exist_ok=True)
+if os.path.exists(Multi_model_dir) is False:
+  os.makedirs(Multi_model_dir, exist_ok=True)
 
 
 
@@ -93,14 +93,15 @@ def validate(model, criterion, validation_torch_loader, now_steps, writer):
   model.eval()
   with torch.no_grad():
     val_loss = 0.0
-    for _step, (ppgs, mels, specs, lengths) in tqdm(enumerate(validation_torch_loader)):
+    for _step, (ppgs, mels, specs, lengths, id_speakers) in tqdm(enumerate(validation_torch_loader)):
       # 数据拿到GPU上
       ppgs = ppgs.to(device)
       mels = mels.to(device)
       specs = specs.to(device)
+      id_speakers = id_speakers.to(device).long()
       ppgs, mels, specs = Variable(ppgs).float(), Variable(mels).float(), Variable(specs).float()
       # Batch同时计算出pred结果
-      mels_pred, specs_pred = model(ppgs)
+      mels_pred, specs_pred = model(ppgs, id_speakers)
       # 根据预测结果定义/计算loss
       loss = 0.0
       # print('now validation batch size:', lengths.shape[0])
@@ -118,9 +119,9 @@ def validate(model, criterion, validation_torch_loader, now_steps, writer):
     writer.add_scalar("validation_loss", val_loss, now_steps)
     # 合成声音
     id = 0
-    generate_pair_wav(specs[id, :lengths[id], :].cpu().data.numpy(), specs_pred[id, :lengths[id], :].cpu().data.numpy(), DataBakerCN_log_dir, now_steps, suffix_name='first')
+    generate_pair_wav(specs[id, :lengths[id], :].cpu().data.numpy(), specs_pred[id, :lengths[id], :].cpu().data.numpy(), Multi_log_dir, now_steps, suffix_name='first')
     id = lengths.shape[0] - 1
-    generate_pair_wav(specs[id, :lengths[id], :].cpu().data.numpy(), specs_pred[id, :lengths[id], :].cpu().data.numpy(), DataBakerCN_log_dir, now_steps, suffix_name='last')
+    generate_pair_wav(specs[id, :lengths[id], :].cpu().data.numpy(), specs_pred[id, :lengths[id], :].cpu().data.numpy(), Multi_log_dir, now_steps, suffix_name='last')
 
   model.train()
   print('ValidationLoss:', val_loss)
@@ -152,7 +153,7 @@ def main():
   
   # 构建模型，放在gpu上，顺便把tensorboard的图的记录变量操作也算在这里面
   model = DCBHG().to(device)
-  writer = SummaryWriter(log_dir=DataBakerCN_log_dir)
+  writer = SummaryWriter(log_dir=Multi_log_dir)
 
 
   # 设置梯度回传优化器，目前使用固定lr=0.0003，不知用不用变lr
@@ -161,8 +162,8 @@ def main():
 
   global_step = 0
   global_epoch = 0
-  if restore_ckpt_path_DataBakerCN is not None:
-    model, optimizer, _step, _epoch = load_checkpoint(restore_ckpt_path_DataBakerCN, model, optimizer)
+  if restore_ckpt_path_Multi is not None:
+    model, optimizer, _step, _epoch = load_checkpoint(restore_ckpt_path_Multi, model, optimizer)
     global_step = _step
     global_epoch = _epoch
   
@@ -184,7 +185,7 @@ def main():
   model.train()
   while global_epoch < nepochs:
       running_loss = 0.0
-      for _step, (ppgs, mels, specs, lengths, id_speakers) in tqdm(enumerate(now_train_torch_dataloader)):
+      for _step, (ppgs, mels, specs, lengths, id_speakers) in enumerate(now_train_torch_dataloader):
           # Batch开始训练，清空opt，数据拿到GPU上
           optimizer.zero_grad()
 
@@ -194,7 +195,7 @@ def main():
           id_speakers = id_speakers.to(device).long()
           ppgs, mels, specs = Variable(ppgs).float(), Variable(mels).float(), Variable(specs).float()
           # id_speaker需要是整数
-          print('id_speaker type', id_speakers.type())
+          # print('id_speaker type', id_speakers.type())
 
 
           # Batch同时计算出pred结果
@@ -222,7 +223,7 @@ def main():
 
           # 存储ckpt，存储生成的音频
           if global_step > 0 and global_step % CKPT_EVERY == 0:
-            checkpoint_path = os.path.join(DataBakerCN_model_dir, "checkpoint_step{:09d}.pth".format(global_step))
+            checkpoint_path = os.path.join(Multi_model_dir, "checkpoint_step{:09d}.pth".format(global_step))
             torch.save({
                 "state_dict": model.state_dict(),
                 "optimizer": optimizer.state_dict(),

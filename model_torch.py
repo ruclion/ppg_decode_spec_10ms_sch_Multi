@@ -11,8 +11,7 @@ from torch.autograd import Variable
 
 # 超参数个数：5
 hparams = {
-    'phn_num': 345,
-    'speaker'
+    'phn_num': 565,
     'n_mels' : 80,
     'spec_dim' : 201,
 
@@ -256,7 +255,7 @@ class DCBHG(nn.Module):
 
     self.prenet = Prenet(self.input_dim_phn, hparams['hidden_units'], hparams['hidden_units'] // 2)
     self.speaker_embedding_net = nn.Embedding(hparams['n_speakers'], hparams['speakers_embedding_dim'])
-    self.after_cat_linear = nn.Linear(hparams['hidden_units'] // 2 + hparams['speakers_embedding_dim'], hparams['after_cat_dim'])
+    self.after_cat_linear = SeqLinear(hparams['hidden_units'] // 2 + hparams['speakers_embedding_dim'], hparams['after_cat_dim'])
     self.cbhg1 = CBHG(hparams['hidden_units'])
     self.linear1 = nn.Linear(hparams['hidden_units'] * 2, hparams['n_mels'])
 
@@ -271,9 +270,10 @@ class DCBHG(nn.Module):
     embedding_speaker = embedding_speaker.unsqueeze(1) # (bs, 64) -> (bs, 1, 64)
     embedding_speaker = embedding_speaker.repeat(1, ppgs.size(1), 1)  # (bs, frames, 64)
     cat_ppg_speaker = torch.cat((prenet_out, embedding_speaker), -1) # (bs, frames, 128 + 64)
-    print('cat size:', cat_ppg_speaker.size())
+    # print('cat size:', cat_ppg_speaker.size())
     adjusted_ppg_speaker = self.after_cat_linear(cat_ppg_speaker) # (bs, frames, 128 + 64) -> # (bs, frames, 128)
-    print('adjusted size:', adjusted_ppg_speaker.size())
+    adjusted_ppg_speaker = F.relu(adjusted_ppg_speaker) # relu
+    # print('adjusted size:', adjusted_ppg_speaker.size())
     
 
     # pred_mel = self.cbhg1(prenet_out)
