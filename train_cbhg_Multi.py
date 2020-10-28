@@ -40,8 +40,8 @@ hparams = {
 
 assert hparams == audio_hparams
 
-TRAIN_FILE = 'meta_good_train_small.txt'
-VALIDATION_FILE = 'meta_good_validation_small.txt'
+TRAIN_FILE = 'meta_good_old_small_train.txt'
+VALIDATION_FILE = 'meta_good_old_small_validation.txt'
 # 注意是否要借鉴已经有的模型
 restore_ckpt_path_Multi = None
 
@@ -52,9 +52,10 @@ device = torch.device("cuda" if use_cuda else "cpu")
 num_workers = 0
 
 # some super parameters，用epochs来计数，而不是步数（不过两者同时统计）
-BATCH_SIZE = 64
+# BATCH_SIZE = 64
+# BATCH_SIZE = 32
 # BATCH_SIZE = 2
-# BATCH_SIZE = 16
+BATCH_SIZE = 16
 clip_thresh = 0.1
 nepochs = 5000
 LEARNING_RATE = 0.0003
@@ -112,6 +113,8 @@ def validate(model, criterion, validation_torch_loader, now_steps, writer):
 
       loss = loss / BATCH_SIZE
       val_loss += loss.item() 
+
+      break
 
     # 计算验证集整体loss，然后画出来
     val_loss /= (len(validation_torch_loader))

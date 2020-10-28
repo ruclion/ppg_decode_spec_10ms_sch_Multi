@@ -4,14 +4,14 @@ from torch.utils.data import Dataset
 
 
 
-English_PPG_LJSpeech_DIR = '/datapool/home/hujk17/ppgs_extractor_10ms_sch_lh_librispeech/LJSpeech-1.1-English-PPG/ppg_generate_10ms_by_audio_hjk2'
-English_PPG_DataBaker_DIR = '/datapool/home/hujk17/ppgs_extractor_10ms_sch_lh_librispeech/DataBaker-English-PPG/ppg_generate_10ms_by_audio_hjk2'
-Mandarin_PPG_LJSpeech_DIR = '/datapool/home/hujk17/ppgs_extractor_10ms_sch_lh_aishell1/LJSpeech-1.1-Mandarin-PPG/ppg_generate_10ms_by_audio_hjk2'
-Mandarin_PPG_DataBaker_DIR = '/datapool/home/hujk17/ppgs_extractor_10ms_sch_lh_aishell1/DataBaker-Mandarin-PPG/ppg_generate_10ms_by_audio_hjk2'
-MEL_LJSpeech_DIR = '/datapool/home/hujk17/ppgs_extractor_10ms_sch_lh_librispeech/LJSpeech-1.1-English-PPG/mel_10ms_by_audio_hjk2'
-MEL_DataBaker_DIR = '/datapool/home/hujk17/ppgs_extractor_10ms_sch_lh_librispeech/DataBaker-English-PPG/mel_10ms_by_audio_hjk2'
-SPEC_LJSpeech_DIR = '/datapool/home/hujk17/ppgs_extractor_10ms_sch_lh_librispeech/LJSpeech-1.1-English-PPG/spec_10ms_by_audio_hjk2'
-SPEC_DataBaker_DIR = '/datapool/home/hujk17/ppgs_extractor_10ms_sch_lh_librispeech/DataBaker-English-PPG/spec_10ms_by_audio_hjk2'
+English_PPG_LJSpeech_DIR = '/datapool/home/hujk17/ppgs_extractor_10ms_sch_lh_librispeech/LJSpeech-1.1-English-PPG-old/ppg_generate_10ms_by_audio_hjk2'
+English_PPG_DataBaker_DIR = '/datapool/home/hujk17/ppgs_extractor_10ms_sch_lh_librispeech/DataBaker-English-PPG-old/ppg_generate_10ms_by_audio_hjk2'
+Mandarin_PPG_LJSpeech_DIR = '/datapool/home/hujk17/ppgs_extractor_10ms_sch_lh_aishell1/LJSpeech-1.1-Mandarin-PPG-old/ppg_generate_10ms_by_audio_hjk2'
+Mandarin_PPG_DataBaker_DIR = '/datapool/home/hujk17/ppgs_extractor_10ms_sch_lh_aishell1/DataBaker-Mandarin-PPG-old/ppg_generate_10ms_by_audio_hjk2'
+MEL_LJSpeech_DIR = '/datapool/home/hujk17/ppgs_extractor_10ms_sch_lh_librispeech/LJSpeech-1.1-English-PPG-old/mel_10ms_by_audio_hjk2'
+MEL_DataBaker_DIR = '/datapool/home/hujk17/ppgs_extractor_10ms_sch_lh_librispeech/DataBaker-English-PPG-old/mel_10ms_by_audio_hjk2'
+SPEC_LJSpeech_DIR = '/datapool/home/hujk17/ppgs_extractor_10ms_sch_lh_librispeech/LJSpeech-1.1-English-PPG-old/spec_10ms_by_audio_hjk2'
+SPEC_DataBaker_DIR = '/datapool/home/hujk17/ppgs_extractor_10ms_sch_lh_librispeech/DataBaker-English-PPG-old/spec_10ms_by_audio_hjk2'
 max_length = 1000
 PPG_DIM = 347 + 218
 MEL_DIM = 80
