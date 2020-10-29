@@ -40,8 +40,8 @@ hparams = {
 
 assert hparams == audio_hparams
 
-TRAIN_FILE = 'meta_good_old_small_train.txt'
-VALIDATION_FILE = 'meta_good_old_small_validation.txt'
+TRAIN_FILE = 'meta_good_v2_train.txt'
+VALIDATION_FILE = 'meta_good_v2_validation.txt'
 # 注意是否要借鉴已经有的模型
 restore_ckpt_path_Multi = None
 
@@ -66,8 +66,8 @@ VALIDATION_EVERY = 600
 # VALIDATION_EVERY = 2
 
 # Multi的log: ckpt文件夹以及wav文件夹，tensorboad在wav文件夹中
-Multi_log_dir = os.path.join('restoreANDvalitation_Multi_log_dir', STARTED_DATESTRING, 'train_wav')
-Multi_model_dir = os.path.join('restoreANDvalitation_Multi_log_dir', STARTED_DATESTRING, 'ckpt_model')
+Multi_log_dir = os.path.join('Multi_v2_log_dir', STARTED_DATESTRING, 'logs')
+Multi_model_dir = os.path.join('Multi_v2_log_dir', STARTED_DATESTRING, 'ckpt_model')
 if os.path.exists(Multi_log_dir) is False:
   os.makedirs(Multi_log_dir, exist_ok=True)
 if os.path.exists(Multi_model_dir) is False:
@@ -91,6 +91,7 @@ def load_checkpoint(checkpoint_path, model, optimizer):
 
 def validate(model, criterion, validation_torch_loader, now_steps, writer):
   print('Start validation...')
+  start_time = time.time()
   model.eval()
   with torch.no_grad():
     val_loss = 0.0
@@ -114,7 +115,7 @@ def validate(model, criterion, validation_torch_loader, now_steps, writer):
       loss = loss / BATCH_SIZE
       val_loss += loss.item() 
 
-      break
+      # break
 
     # 计算验证集整体loss，然后画出来
     val_loss /= (len(validation_torch_loader))
@@ -127,6 +128,7 @@ def validate(model, criterion, validation_torch_loader, now_steps, writer):
     generate_pair_wav(specs[id, :lengths[id], :].cpu().data.numpy(), specs_pred[id, :lengths[id], :].cpu().data.numpy(), Multi_log_dir, now_steps, suffix_name='last')
 
   model.train()
+  print('use time:', time.time() - start_time)
   print('ValidationLoss:', val_loss)
 
 
@@ -189,6 +191,7 @@ def main():
   while global_epoch < nepochs:
       running_loss = 0.0
       for _step, (ppgs, mels, specs, lengths, id_speakers) in enumerate(now_train_torch_dataloader):
+          start_time = time.time()
           # Batch开始训练，清空opt，数据拿到GPU上
           optimizer.zero_grad()
 
@@ -212,7 +215,7 @@ def main():
             spec_loss = my_l1_loss(specs_pred[i, :lengths[i], :], specs[i, :lengths[i], :])
             loss += (mel_loss + spec_loss)
           loss = loss / BATCH_SIZE
-          print('Steps', global_step, 'Training Loss：', loss.item())
+          print('Steps', global_step, 'Training Loss：', loss.item(), 'Time Use: ', time.time() - start_time)
           writer.add_scalar("loss", float(loss.item()), global_step)
           running_loss += loss.item() 
 
