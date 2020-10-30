@@ -2,3 +2,4 @@
 *.txt
 restoreANDvalitation_Multi_log_dir/
 Multi_v2_log_dir/
+inference_Multi_log_dir/

@@ -19,7 +19,7 @@ hparams = {
     'sample_rate': 16000,
     'preemphasis': 0.97,
     'n_fft': 400,
-    'hop_length': 80,
+    'hop_length': 160,
     'win_length': 400,
     'num_mels': 80,
     'n_mfcc': 13,
@@ -37,6 +37,10 @@ hparams = {
 
 assert hparams == audio_hparams
 
+EN_PPG_DIM = 347
+CN_PPG_DIM = 218
+PPG_DIM = 347 + 218
+
 
 use_cuda = torch.cuda.is_available()
 assert use_cuda is True
@@ -44,10 +48,10 @@ assert use_cuda is True
 
 # 超参数和路径
 STARTED_DATESTRING = "{0:%Y-%m-%dT%H-%M-%S}".format(datetime.now())
-ckpt_path_DataBakerCN = '/datapool/home/hujk17/ppg_decode_spec_5ms_sch_DataBakerCN/restoreANDvalitation_DataBakerCN_log_dir/2020-10-15T21-03-07/ckpt_model/checkpoint_step000031800.pth'
+ckpt_path_Multi = '/datapool/home/hujk17/ppg_decode_spec_10ms_sch_Multi/Multi_v2_log_dir/2020-10-29T13-52-53/ckpt_model/checkpoint_step000043200.pth'
 
 ppgs_paths = 'inference_ppgs_path_list.txt'
-DataBakerCN_log_dir = os.path.join('inference_DataBakerCN_log_dir', STARTED_DATESTRING)
+DataBakerCN_log_dir = os.path.join('inference_Multi_log_dir', STARTED_DATESTRING)
 if os.path.exists(DataBakerCN_log_dir) is False:
     os.makedirs(DataBakerCN_log_dir, exist_ok=True)
 
@@ -63,17 +67,27 @@ def tts_load(model, ckpt_path):
     return model
 
 
-def tts_predict(model, ppg):
+def tts_predict(model, ppg, id_speaker):
     # 准备输入的数据并转换到GPU
     ppg = Variable(torch.from_numpy(ppg)).unsqueeze(0).float()
+    id_speaker = torch.LongTensor([id_speaker])
+    print('orig:', id_speaker)
+    print(id_speaker.shape)
+    # id_speaker = id_speaker.unsqueeze(0)
     print(ppg.size())
     print(ppg.shape)
     print(ppg.type())
+    print('---------- id_speaker')
+    print(id_speaker.size())
+    print(id_speaker.shape)
+    print(id_speaker.type())
+    print(id_speaker)
     if use_cuda:
         ppg = ppg.cuda()
+        id_speaker = id_speaker.cuda()
 
     # 进行预测并数据转换到CPU
-    mel_pred, spec_pred = model(ppg)
+    mel_pred, spec_pred = model(ppg, id_speaker)
     mel_pred = mel_pred[0].cpu().data.numpy()
     spec_pred = spec_pred[0].cpu().data.numpy()
 
@@ -94,14 +108,20 @@ def draw_spec(a_path, a):
 
 def main():
     global model
-    model = tts_load(model=model, ckpt_path=ckpt_path_DataBakerCN)
+    model = tts_load(model=model, ckpt_path=ckpt_path_Multi)
 
 
     ppgs_list = open(ppgs_paths, 'r')
     ppgs_list = [i.strip() for i in ppgs_list]
-    for idx, ppg_path in tqdm(enumerate(ppgs_list)):
-        ppg = np.load(ppg_path)
-        mel_pred, spec_pred, mel_pred_audio, spec_pred_audio = tts_predict(model, ppg)
+    for idx, two_ppg_paths_speaker in tqdm(enumerate(ppgs_list)):
+        en_ppg_path, cn_ppg_path, speaker_id = two_ppg_paths_speaker.split('|')
+        en_ppg = np.load(en_ppg_path)
+        cn_ppg = np.load(cn_ppg_path)
+        assert en_ppg.shape[1] == EN_PPG_DIM and cn_ppg.shape[1] == CN_PPG_DIM
+        bilingual_ppg = np.concatenate((en_ppg, cn_ppg),axis=-1)
+        assert bilingual_ppg.shape[1] == PPG_DIM
+        speaker_id = int(speaker_id)
+        mel_pred, spec_pred, mel_pred_audio, spec_pred_audio = tts_predict(model, bilingual_ppg, speaker_id)
 
         write_wav(os.path.join(DataBakerCN_log_dir, "{}_sample_mel.wav".format(idx)), mel_pred_audio)
         write_wav(os.path.join(DataBakerCN_log_dir, "{}_sample_spec.wav".format(idx)), spec_pred_audio)
