@@ -40,8 +40,8 @@ hparams = {
 
 assert hparams == audio_hparams
 
-TRAIN_FILE = 'meta_good_v2_train.txt'
-VALIDATION_FILE = 'meta_good_v2_validation.txt'
+TRAIN_FILE = 'meta_good_v3_train.txt'
+VALIDATION_FILE = 'meta_good_v3_validation.txt'
 # 注意是否要借鉴已经有的模型
 restore_ckpt_path_Multi = None
 
@@ -66,8 +66,8 @@ VALIDATION_EVERY = 600
 # VALIDATION_EVERY = 2
 
 # Multi的log: ckpt文件夹以及wav文件夹，tensorboad在wav文件夹中
-Multi_log_dir = os.path.join('Multi_v2_log_dir', STARTED_DATESTRING, 'logs')
-Multi_model_dir = os.path.join('Multi_v2_log_dir', STARTED_DATESTRING, 'ckpt_model')
+Multi_log_dir = os.path.join('Multi_v3_log_dir', STARTED_DATESTRING, 'logs')
+Multi_model_dir = os.path.join('Multi_v3_log_dir', STARTED_DATESTRING, 'ckpt_model')
 if os.path.exists(Multi_log_dir) is False:
   os.makedirs(Multi_log_dir, exist_ok=True)
 if os.path.exists(Multi_model_dir) is False:
