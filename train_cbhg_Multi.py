@@ -43,8 +43,8 @@ assert hparams == audio_hparams
 TRAIN_FILE = 'meta_good_v3_train.txt'
 VALIDATION_FILE = 'meta_good_v3_validation.txt'
 # 注意是否要借鉴已经有的模型
-restore_ckpt_path_Multi = None
-
+restore_ckpt_path_Multi = '/datapool/home/hujk17/ppg_decode_spec_10ms_sch_Multi/Multi_v3_log_dir/2020-11-04T10-33-48/ckpt_model/checkpoint_step000005400.pth'
+time_of_restore_ckpt = '2020-11-04T10-33-48'
 
 use_cuda = torch.cuda.is_available()
 assert use_cuda is True
@@ -59,13 +59,16 @@ BATCH_SIZE = 16
 clip_thresh = 0.1
 nepochs = 5000
 LEARNING_RATE = 0.0003
-STARTED_DATESTRING = "{0:%Y-%m-%dT%H-%M-%S}".format(datetime.now())
 CKPT_EVERY = 300
 # CKPT_EVERY = 2
 VALIDATION_EVERY = 600
 # VALIDATION_EVERY = 2
 
 # Multi的log: ckpt文件夹以及wav文件夹，tensorboad在wav文件夹中
+if restore_ckpt_path_Multi is None:
+  STARTED_DATESTRING = "{0:%Y-%m-%dT%H-%M-%S}".format(datetime.now())
+else:
+  STARTED_DATESTRING = time_of_restore_ckpt
 Multi_log_dir = os.path.join('Multi_v3_log_dir', STARTED_DATESTRING, 'logs')
 Multi_model_dir = os.path.join('Multi_v3_log_dir', STARTED_DATESTRING, 'ckpt_model')
 if os.path.exists(Multi_log_dir) is False:
