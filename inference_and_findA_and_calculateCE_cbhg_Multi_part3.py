@@ -1,179 +1,97 @@
 import os
 import numpy as np
-from tqdm import tqdm
 from scipy import stats
-from datetime import datetime
-from matplotlib import pyplot as plt
-plt.switch_backend('agg')
-
-import torch
-from torch.autograd import Variable
-
-from audio import hparams as audio_hparams
-from audio import normalized_db_mel2wav, normalized_db_spec2wav, write_wav
-from audio import load_wav, wav2unnormalized_mfcc, wav2normalized_db_mel, wav2normalized_db_spec
-
-from model_torch import DCBHG
 
 
-# 超参数个数：16
-hparams = {
-    'sample_rate': 16000,
-    'preemphasis': 0.97,
-    'n_fft': 400,
-    'hop_length': 160,
-    'win_length': 400,
-    'num_mels': 80,
-    'n_mfcc': 13,
-    'window': 'hann',
-    'fmin': 30.,
-    'fmax': 7600.,
-    'ref_db': 20,  
-    'min_db': -80.0,  
-    'griffin_lim_power': 1.5,
-    'griffin_lim_iterations': 60,  
-    'silence_db': -28.0,
-    'center': True,
-}
-
-
-assert hparams == audio_hparams
-
-EN_PPG_DIM = 347
-CN_PPG_DIM = 218
-PPG_DIM = 347 + 218
-
-
-use_cuda = torch.cuda.is_available()
-assert use_cuda is True
-
-
-# 超参数和路径
 # in
-STARTED_DATESTRING = "{0:%Y-%m-%dT%H-%M-%S}".format(datetime.now())
-ckpt_path_Multi = '/datapool/home/hujk17/ppg_decode_spec_10ms_sch_Multi/Multi_v2_log_dir/2020-10-29T13-52-53/ckpt_model/checkpoint_step000043200.pth'
-ppgs_paths = 'inference_ppgs_path_list.txt'
+meta_path = 'compare_ppgs_inference_and_findA_and_calculateCE_list.txt'
 
 # out
-Multi_log_dir = os.path.join('inference_Multi_log_dir', STARTED_DATESTRING)
-if os.path.exists(Multi_log_dir) is False:
-    os.makedirs(Multi_log_dir, exist_ok=True)
-CE_fromWav_compare_path = 'CE_fromWav_compare_path.txt'
+out_path = 'compare_ppgs_better_result.txt'
 
 
-def tts_load(model, ckpt_path):
-    ckpt_load = torch.load(ckpt_path)
-    model.load_state_dict(ckpt_load["state_dict"])
-    if use_cuda:
-        model = model.cuda()
-    model.eval()
-    return model
-
-
-def tts_predict(model, ppg, id_speaker):
-    # 准备输入的数据并转换到GPU
-    ppg = Variable(torch.from_numpy(ppg)).unsqueeze(0).float()
-    id_speaker = torch.LongTensor([id_speaker])
-    print('orig:', id_speaker)
-    print(id_speaker.shape)
-    # id_speaker = id_speaker.unsqueeze(0)
-    print(ppg.size())
-    print(ppg.shape)
-    print(ppg.type())
-    print('---------- id_speaker')
-    print(id_speaker.size())
-    print(id_speaker.shape)
-    print(id_speaker.type())
-    print(id_speaker)
-    if use_cuda:
-        ppg = ppg.cuda()
-        id_speaker = id_speaker.cuda()
-
-    # 进行预测并数据转换到CPU
-    mel_pred, spec_pred = model(ppg, id_speaker)
-    mel_pred = mel_pred[0].cpu().data.numpy()
-    spec_pred = spec_pred[0].cpu().data.numpy()
-
-    # vocoder合成音频波形文件
-    mel_pred_audio = normalized_db_mel2wav(mel_pred)
-    spec_pred_audio = normalized_db_spec2wav(spec_pred)
-
-    return mel_pred, spec_pred, mel_pred_audio, spec_pred_audio
-
-
-def draw_spec(a_path, a):
-    plt.imshow(a.T, cmap='hot', interpolation='nearest')
-    plt.xlabel('frame nums')
-    plt.ylabel('spec')
-    plt.tight_layout()
-    plt.savefig(a_path, format='png')
-
-
-def unnormalized_mfcc2ppg_v2(mfcc):
-    # 需要tensorflow的代码来跑model
-    return ppg
-
-
-def DKL_vec(vec1, vec2):
-    ans = stats.entropy(vec1,vec2) + stats.entropy(vec2,vec1)
+def dist1(ppgs_a, ppgs_b):
+    ans = 0
+    for i in range(ppgs_a.shape[0]):
+        e = ppgs_a[i]
+        c = ppgs_b[i]
+        ans += np.linalg.norm(e - c)
     return ans
 
-def DKL_seq(ppgs1, ppgs2):
-    len1 = ppgs1.shape[0] 
-    len2 = ppgs2.shape[0]
-    assert len1 == len2
-    ans = 0.0
-    ans_seq = []
-    for i in range(len1):
-        t = DKL_vec(ppgs1[i], ppgs2[i])
-        ans += t
-        ans_seq.append(t)
-    return ans, ans_seq
+
+def dist2KL(ppgs_a, ppgs_b):
+    ans = 0
+    for i in range(ppgs_a.shape[0]):
+        e = ppgs_a[i]
+        c = ppgs_b[i]
+        ans += stats.entropy(e,c) + stats.entropy(c,e)
+    return ans
 
 
-def consistencyError_fromWav(wav_listen, ppg):
-    mfcc_listen = wav2unnormalized_mfcc(wav_listen)
-    ppg_listen = unnormalized_mfcc2ppg_v2(mfcc_listen)
-    return DKL_seq(ppg_listen, ppg)
+def dist3BetterNum(ppg_std, ppg_baseline, ppg_findA):
+    # ans = []
+    cnt_baseline_better_d1 = 0
+    cnt_findA_better_d1 = 0
+    cnt_baseline_better_d2 = 0
+    cnt_findA_better_d2 = 0
+    for i in range(ppg_std.shape[0]):
+        d1_baseline = np.linalg.norm(ppg_std[i] - ppg_baseline[i])
+        d1_findA = np.linalg.norm(ppg_std[i] - ppg_findA[i])
+        if d1_baseline < d1_findA:
+            cnt_baseline_better_d1 += 1
+        else:
+            cnt_findA_better_d1 += 1
+
+        d2_baseline = stats.entropy(ppg_std[i],ppg_baseline[i]) + stats.entropy(ppg_baseline[i],ppg_std[i])
+        d2_findA = stats.entropy(ppg_std[i],ppg_findA[i]) + stats.entropy(ppg_findA[i],ppg_std[i])
+        if d2_baseline < d2_findA:
+            cnt_baseline_better_d2 += 1
+        else:
+            cnt_findA_better_d2 += 1
+    return cnt_baseline_better_d1, cnt_findA_better_d1, cnt_baseline_better_d2, cnt_findA_better_d2
+
 
 
 
 def main():
-    with torch.no_grad():
-        model = DCBHG()
-        model = tts_load(model=model, ckpt_path=ckpt_path_Multi)
+    a = open(meta_path, 'r')
+    f = open(out_path, 'w')
+    for i, six_ppgs_speaker in enumerate(a): 
+        ppg, findA_ppg, rec_ppg_en, rec_ppg_cn, findA_rec_ppg_en, findA_rec_ppg_cn, speaker = six_ppgs_speaker.strip().split('|')
+        ppg = np.load(ppg)
+        findA_ppg = np.load(findA_ppg)
+        rec_ppg_en = np.load(rec_ppg_en)
+        rec_ppg_cn = np.load(rec_ppg_cn)
+        rec_ppg = np.concatenate((rec_ppg_en, rec_ppg_cn),axis=-1)
 
-        ppgs_list = open(ppgs_paths, 'r')
-        ppgs_list = [i.strip() for i in ppgs_list]
-        for idx, ppg_path_and_findA_ppg_path_and_speaker in tqdm(enumerate(ppgs_list)):
-            ppg_path, findA_ppg_path, speaker_id = ppg_path_and_findA_ppg_path_and_speaker.split('|')
-            ppg = np.load(ppg_path)
-            findA_ppg = np.load(findA_ppg_path)
-            assert ppg.shape[1] == PPG_DIM and findA_ppg.shape[1] == PPG_DIM
+        findA_rec_ppg_en = np.load(findA_rec_ppg_en)
+        findA_rec_ppg_cn = np.load(findA_rec_ppg_cn)
+        findA_rec_ppg = np.concatenate((findA_rec_ppg_en, findA_rec_ppg_cn),axis=-1)
 
-            speaker_id = int(speaker_id)
-            mel_pred, spec_pred, mel_pred_audio, spec_pred_audio = tts_predict(model, ppg, speaker_id)
-            findA_mel_pred, findA_spec_pred, findA_mel_pred_audio, findA_spec_pred_audio = tts_predict(model, findA_ppg, speaker_id)
-            CE_fromWav, CE_seq_fromWav = consistencyError_fromWav(spec_pred_audio, ppg)
-            findA_CE_fromWav, findA_CE_seq_fromWav = consistencyError_fromWav(findA_spec_pred_audio, ppg)
-            
+        speaker = int(speaker)
 
-            with open(CE_fromWav_compare_path, 'w') as f:
-                f.write(str(CE_fromWav) + '\n')
-                f.write(str(findA_CE_fromWav) + '\n')
+        baseline_d1 = dist1(ppg, rec_ppg)
+        findA_d1 = dist1(ppg, findA_rec_ppg)
+        baseline_d2 = dist2KL(ppg, rec_ppg)
+        findA_d2 = dist2KL(ppg, findA_rec_ppg)
 
-            
+        f.write(str(i) + ' ' + 'speaker: ' + str(speaker) + '\n')
+        f.write('dist1: ' + 'baseline-' + str(baseline_d1) + 'findA-' + str(findA_d1) + '\n')
+        f.write('dist2KL: ' + 'baseline-' + str(baseline_d2) + 'findA-' + str(findA_d2) + '\n')
 
-            write_wav(os.path.join(Multi_log_dir, "{}_sample_mel.wav".format(idx)), mel_pred_audio)
-            write_wav(os.path.join(Multi_log_dir, "{}_sample_spec.wav".format(idx)), spec_pred_audio)
+        findA_error = dist2KL(ppg, findA_ppg)
+        NN_error = dist2KL(findA_ppg, findA_rec_ppg)
+        f.write('findA_error: ' + str(findA_error) + 'NN_error: ' + str(NN_error) + '\n')
 
-            np.save(os.path.join(Multi_log_dir, "{}_sample_mel.npy".format(idx)), mel_pred)
-            np.save(os.path.join(Multi_log_dir, "{}_sample_spec.npy".format(idx)), spec_pred)
+        cnt_baseline_d1, cnt_findA_d1, cnt_baseline_d2, cnt_findA_d2 = dist3BetterNum(ppg, rec_ppg, findA_rec_ppg) 
+        f.write('d1 baseline better: ' + str(cnt_baseline_d1) + ' findA better: ' + str(cnt_findA_d1) + '\n')
+        f.write('d2 baseline better: ' + str(cnt_baseline_d2) + ' findA better: ' + str(cnt_findA_d2) + '\n')
 
-            draw_spec(os.path.join(Multi_log_dir, "{}_sample_mel.png".format(idx)), mel_pred)
-            draw_spec(os.path.join(Multi_log_dir, "{}_sample_spec.png".format(idx)), spec_pred)
-      
-    
+        f.write('\n')
 
-if __name__ == "__main__":
+
+
+
+
+if __name__ == '__main__':
     main()
